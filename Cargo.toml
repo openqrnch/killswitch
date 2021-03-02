@@ -1,6 +1,6 @@
 [package]
 name = "killswitch"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jan Danielsson <jan.danielsson@qrnch.com>"]
 edition = "2018"
 license = "0BSD"
@@ -13,5 +13,5 @@ exclude = [ "rustfmt.toml" ]
 [dependencies]
 
 [dev-dependencies]
-tokio = { verison = "1", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
