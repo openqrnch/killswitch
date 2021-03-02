@@ -104,20 +104,33 @@ impl Future for KillSwitch {
 
 /// Receiver object for kill switches.
 pub struct Shutdown {
-  ctx: Arc<Shared>,
-  id: Arc<AtomicUsize>
+  ctx: Arc<Shared>
 }
 
-impl Clone for Shutdown {
-  fn clone(&self) -> Shutdown {
-    Shutdown {
+impl Shutdown {
+  pub fn wait(&self) -> ShutdownFuture {
+    ShutdownFuture {
       ctx: Arc::clone(&self.ctx),
       id: Arc::new(AtomicUsize::new(0))
     }
   }
 }
 
-impl Future for Shutdown {
+impl Clone for Shutdown {
+  fn clone(&self) -> Shutdown {
+    Shutdown {
+      ctx: Arc::clone(&self.ctx)
+    }
+  }
+}
+
+
+pub struct ShutdownFuture {
+  ctx: Arc<Shared>,
+  id: Arc<AtomicUsize>
+}
+
+impl Future for ShutdownFuture {
   type Output = ();
   fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
     match self.ctx.shutdown.load(Ordering::SeqCst) {
@@ -150,9 +163,10 @@ impl Future for Shutdown {
   }
 }
 
+
 /// If a Shutdown object is released and it has a Waker in the internal
 /// hashmap, then release that Waker object.
-impl Drop for Shutdown {
+impl Drop for ShutdownFuture {
   fn drop(&mut self) {
     let id = self.id.load(Ordering::SeqCst);
     if id != 0 {
@@ -188,10 +202,7 @@ pub fn killswitch() -> (KillSwitch, Shutdown) {
   let killswitch = KillSwitch {
     ctx: Arc::clone(&shared)
   };
-  let shutdown = Shutdown {
-    ctx: shared,
-    id: Arc::new(AtomicUsize::new(0))
-  };
+  let shutdown = Shutdown { ctx: shared };
 
   (killswitch, shutdown)
 }
