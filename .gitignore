@@ -1,0 +1,4 @@
+.*.swp
+.fossil-settings
+.fslckout
+Cargo.lock
