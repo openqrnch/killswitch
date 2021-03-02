@@ -27,7 +27,7 @@
 //!
 //! async fn croakable(s: String, shutdown: Shutdown) {
 //!  println!("croakable({}) entered", s);
-//!  shutdown.await;
+//!  shutdown.wait().await;
 //!  println!("croakable({}) leaving", s);
 //! }
 //! ```
