@@ -9,31 +9,32 @@
 //! async fn main() -> Result<(), Box<dyn Error>> {
 //!   let (killswitch, shutdown) = killswitch();
 //!
-//!  tokio::spawn(croakable(String::from("test1"), shutdown.clone()));
-//!  tokio::spawn(croakable(String::from("test2"), shutdown.clone()));
+//!   tokio::spawn(croakable(String::from("test1"), shutdown.clone()));
+//!   tokio::spawn(croakable(String::from("test2"), shutdown.clone()));
 //!
-//!  sleep(Duration::from_secs(1)).await;
+//!   sleep(Duration::from_secs(1)).await;
 //!
-//!  println!("Trigging kill switch");
-//!  killswitch.trigger();
+//!   println!("Triggering kill switch");
+//!   killswitch.trigger();
 //!
-//!  tokio::spawn(croakable(String::from("test3"), shutdown.clone()));
-//!  tokio::spawn(croakable(String::from("test4"), shutdown));
+//!   tokio::spawn(croakable(String::from("test3"), shutdown.clone()));
+//!   tokio::spawn(croakable(String::from("test4"), shutdown));
 //!
-//!  sleep(Duration::from_secs(1)).await;
+//!   // Wait for all associated shutdown objects to become inactive.
+//!   killswitch.await;
 //!
-//!  Ok(())
+//!   Ok(())
 //! }
 //!
 //! async fn croakable(s: String, shutdown: Shutdown) {
-//!  println!("croakable({}) entered", s);
-//!  shutdown.wait().await;
-//!  println!("croakable({}) leaving", s);
+//!   println!("croakable({}) entered", s);
+//!   shutdown.wait().await;
+//!   println!("croakable({}) leaving", s);
 //! }
 //! ```
 //!
-//! _killswitch_ was developed to be used together with `tokio::select!` to
-//! create abortable tasks.
+//! `killswitch` was developed to help create abortable async tasks by using
+//! multiple-wait features such as the `tokio::select!` macro.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -69,19 +70,20 @@ struct Shared {
 }
 
 
-/// The kill switch used to signal.
+/// The kill switch used to signal that tasks should self-terminate.
 pub struct KillSwitch {
   ctx: Arc<Shared>
 }
 
 impl KillSwitch {
+  /// Signal all associated [`Shutdown`] objects that their tasks should
+  /// terminate.
   pub fn trigger(&self) {
     // Mark kill switch as "set".
     self.ctx.shutdown.store(true, Ordering::SeqCst);
 
-    // Tell all waiting tasks to wake up
+    // Tell all waiting tasks to wake up [and check the kill switch].
     let mut state = self.ctx.state.lock().unwrap();
-
     for (_, waker) in state.waiting.drain() {
       waker.wake();
     }
@@ -108,6 +110,7 @@ pub struct Shutdown {
 }
 
 impl Shutdown {
+  /// Return a future which waits for the kill switch to trigger.
   pub fn wait(&self) -> ShutdownFuture {
     ShutdownFuture {
       ctx: Arc::clone(&self.ctx),
@@ -125,6 +128,7 @@ impl Clone for Shutdown {
 }
 
 
+/// Future returned by [`Shutdown::wait()`].
 pub struct ShutdownFuture {
   ctx: Arc<Shared>,
   id: Arc<AtomicUsize>
